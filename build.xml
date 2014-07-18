@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<projects version="1.0">
+	<project path="mtime.com/tools/gobuild">
+		<platform os="windows" arch="" on="windows" output="${GOPATH}/bin/${PKGNAME}1/${PKGNAME}">
+			<actions>
+				<action name="copy" args="config ${OUTPUT}" on="after"/>
+			</actions>
+		</platform>
+		<platform os="darwin" arch="" on="darwin" output="${GOPATH}/bin/${PKGNAME}1/${PKGNAME}">
+			<actions>
+				<action name="copy" args="config/*.conf ${OUTPUTDIR}/config" on="after"/>
+				<!-- <action name="replace" args="-r ${OUTPUTDIR}/config/url.conf test.com xxx.com" on="after" mode="publish"/> -->
+				<!-- <action name="gzip" args="${OUTPUTDIR} ${GOPATH}/bin/${PKGNAME}.gz" on="after" mode="develop|test|publish"/> -->
+			</actions>
+		</platform>
+		<platform os="linux" arch="" on="linux" output="${GOPATH}/bin/${PKGNAME}1/${PKGNAME}1">
+			<actions>
+				<action name="copy" args="config ${OUTPUTDIR}" on="after"/>
+			</actions>
+		</platform>	
+	</project>
+</projects>
+

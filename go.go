@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"fmt"
 	"os"
 	"os/exec"
@@ -98,6 +97,39 @@ func (this *Go) GetPath() string {
 	return this.path
 }
 
+// get import path of main package
+func (this *Go) GetImportPath(pkg string) (path string, err error) {
+	var (
+		dir    string
+		args   []string
+		output string
+	)
+
+	if filepath.IsAbs(pkg) {
+		dir = pkg
+		args = []string{"list", "-f", "{{.Name}},{{.ImportPath}}"}
+	} else {
+		args = []string{"list", "-f", "{{.Name}},{{.ImportPath}}", pkg}
+	}
+
+	output, err = this.ExecuteCmd(nil, dir, args...)
+	if err != nil {
+		err = fmt.Errorf("%v, output:\n%s", err, output)
+		return
+	}
+
+	for _, line := range strings.Split(output, "\n") {
+		arr := strings.SplitN(line, ",", 2)
+		if len(arr) == 2 && arr[0] == "main" {
+			path = arr[1]
+			return
+		}
+	}
+
+	err = fmt.Errorf("no main package in '%s'", pkg)
+	return
+}
+
 // build project
 func (this *Go) Build(pkg, os, arch, output string) (result string, err error) {
 	env := this.PrepareEnviron(os, arch)
@@ -120,38 +152,28 @@ func (this *Go) Build(pkg, os, arch, output string) (result string, err error) {
 	// inject BUILD_TIME variable
 	ldflags := fmt.Sprintf("-X main.BUILD_TIME '%s'", time.Now().Format("2006-01-02 15:04:05"))
 	result, err = this.ExecuteCmd(env, dir, "build", "-i", "-ldflags", ldflags, "-o", output, pkg)
-	//
-
 	return
 }
 
 // build packages and tools for cross-compilation
 func (this *Go) BuildTools(os, arch string) (result string, err error) {
-	var stdout, stderr bytes.Buffer
 	dir := filepath.Join(this.root, "src")
 	cmdName := filepath.Join(dir, IfString(runtime.GOOS == "windows", "make.bat", "make.bash"))
 	cmd := exec.Command(cmdName, "--no-clean")
 	cmd.Dir = dir
 	cmd.Env = this.PrepareEnviron(os, arch)
-	cmd.Stderr = &stderr
-	cmd.Stdout = &stdout
 
-	err = cmd.Run()
-	if err == nil {
-		result = stdout.String()
-	} else {
-		result = stderr.String()
-	}
+	var output []byte
+	output, err = cmd.CombinedOutput()
+	result = string(output)
 	return
 }
 
 // execute go command, the first arg of args must be a go command like 'build'
-func (this *Go) ExecuteCmd(env []string, dir string, args ...string) (output string, err error) {
-	var stdout, stderr bytes.Buffer
+func (this *Go) ExecuteCmd(env []string, dir string, args ...string) (result string, err error) {
+	var output []byte
 
 	cmd := exec.Command("go", args...)
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
 	if env != nil {
 		cmd.Env = env
 	}
@@ -159,9 +181,10 @@ func (this *Go) ExecuteCmd(env []string, dir string, args ...string) (output str
 		cmd.Dir = dir
 	}
 
-	if err := cmd.Run(); err != nil {
-		return stderr.String(), fmt.Errorf("go %s > %v", args[0], err)
+	output, err = cmd.CombinedOutput()
+	result = string(output)
+	if err != nil {
+		err = fmt.Errorf("go %s > %v", args[0], err)
 	}
-
-	return stdout.String(), nil
+	return
 }

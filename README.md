@@ -30,7 +30,7 @@ build projects with 8 routines...
 Or if you want to specify routine count for parallel building(default is number of CPU):
 
 ```
-$ $ gobuild -p=4 -v github.com/cuigh/gobuild
+$ gobuild -p=4 -v github.com/cuigh/gobuild
 ```
 
 You also can build projects from configuration:

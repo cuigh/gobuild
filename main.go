@@ -182,12 +182,6 @@ func loadConfig(g *Go, flags *flag.FlagSet) (*BuildConfig, error) {
 			} else {
 				p.FullPath = filepath.Join(g.GetPath(), "src", p.Path)
 			}
-
-			if strings.HasPrefix(p.FullPath, goSrcPath) {
-				p.Path, _ = filepath.Rel(goSrcPath, p.FullPath)
-			} else {
-				p.Path = p.FullPath
-			}
 		}
 	}
 
@@ -216,15 +210,20 @@ func buildProject(g *Go, project *Project) {
 }
 
 func buildPlatform(g *Go, pkgPath, pkgFullPath string, platform *Platform) (result *BuildResult) {
-	// pkgPath := pkg
-	// goSrcPath := filepath.Join(g.GetPath(), "src")
-	// if strings.HasPrefix(pkgPath, goSrcPath) {
-	// 	pkgPath, _ = filepath.Rel(goSrcPath, pkgPath)
-	// }
-	result = &BuildResult{Package: pkgPath}
+	result = &BuildResult{}
 
 	os := IfString(platform.OS == "", g.GetOS(), platform.OS)
 	arch := IfString(platform.Arch == "", g.GetArch(), platform.Arch)
+	result.OS, result.Arch = os, arch
+
+	importPath, err := g.GetImportPath(pkgFullPath)
+	if err != nil {
+		result.Package, result.Error = pkgPath, err
+		return
+	} else {
+		result.Package = importPath
+	}
+
 	data := map[string]string{
 		"GOPATH":  g.GetPath(),
 		"GOOS":    os,
@@ -233,7 +232,6 @@ func buildPlatform(g *Go, pkgPath, pkgFullPath string, platform *Platform) (resu
 		"PKGNAME": filepath.Base(pkgFullPath),
 	}
 	output := ExpandString(platform.Output, data)
-	result.OS, result.Arch = os, arch
 
 	data["OUTPUTDIR"] = filepath.Dir(output)
 	data["OUTPUTNAME"] = filepath.Dir(output)
@@ -249,7 +247,7 @@ func buildPlatform(g *Go, pkgPath, pkgFullPath string, platform *Platform) (resu
 		}
 	}
 
-	result.Output, result.Error = g.Build(pkgPath, os, arch, output)
+	result.Output, result.Error = g.Build(importPath, os, arch, output)
 
 	if result.Error == nil {
 		for _, action := range platform.Actions {

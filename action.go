@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -29,6 +30,8 @@ func (this *Executor) Execute(actions ...*Action) error {
 			)
 
 			switch action.Name {
+			case "exec":
+				err = this.Exec(args)
 			case "copy":
 				err = this.Copy(args)
 			case "replace":
@@ -41,6 +44,25 @@ func (this *Executor) Execute(actions ...*Action) error {
 				return fmt.Errorf("execute action error > %v", err)
 			}
 		}
+	}
+
+	return nil
+}
+
+func (this *Executor) Exec(args []string) error {
+	if len(args) == 0 {
+		return fmt.Errorf("no command is specified")
+	}
+
+	for i := 1; i < len(args); i++ {
+		args[i] = ExpandString(args[i], this.data)
+	}
+
+	cmd := exec.Command(args[0], args[1:]...)
+	cmd.Dir = this.dir
+
+	if result, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("%v, output:\n%s", err, result)
 	}
 
 	return nil
